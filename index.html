@@ -1,0 +1,224 @@
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+        }
+
+        div {
+            margin: 8px;
+        }
+
+        td {
+            min-width: 150px;
+        }
+
+        .full-width {
+            min-width: 300px;
+        }
+    </style>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <h1>Nurse Scheduling Solver</h1>
+    <hr>
+
+    <fieldset>
+        <div>
+            <label for="nurseCount">Nurse count</label>
+            <input type="number" id="nurseCount" name="nurseCount" value="5">
+        </div>
+        <div>
+            <label for="shiftsPerDay">Shifts per day</label>
+            <input type="number" id="shiftsPerDay" name="shiftsPerDay" value="3">
+        </div>
+        <div>
+            <label for="days">Day count</label>
+            <input type="number" id="days" name="days" value="7">
+        </div>
+    </fieldset>
+    <div>
+        <button type="button" class="btn btn-primary" onclick="reset()">Reset</button>
+        <button type="button" class="btn btn-success" onclick="solve()">Solve</button>
+    </div>
+    <div>
+        <ul>
+            <li>Each shift is assigned to exactly one nurse in.</li>
+            <li>Each nurse works at most one shift per day.</li>
+            <li>Shifts are assigned fairly among nurses.</li>
+            <li>You can assign a nurse Id in a shift box to declare preference.</li>
+            <li>If more than one nurse prefer to have a certain shift, their Ids can be adde separated by commas like 3,5</li>
+        </ul>
+    </div>
+    <div id="content">
+
+    </div>
+</body>
+<script>
+
+    let el = (selector) => document.querySelector(selector);
+
+    let createNurseSelector = (cell, day, shift, nurseCount) => {
+
+        let selector = document.createElement('input');
+        selector.type = 'text';
+        selector.id = `day${day}-shift${shift}`;
+        selector.classList.add("font-weight-bold", "full-width");
+        cell.appendChild(selector);
+
+    }
+
+    let getShiftRequests = (nurseCount, shiftsPerDay, days) => {
+        let array = [];
+        for(var nurse=0; nurse < nurseCount; nurse++)
+        {
+            let nurseArray = [];
+            array.push(nurseArray);
+            for(var day=0; day < days; day++)
+            {
+                let dayArray = [];
+                nurseArray.push(dayArray);
+                for(var shift=0; shift < shiftsPerDay; shift++)
+                {
+                    let requested_nurses = document.querySelector(`#day${day}-shift${shift}`).value.split(',');
+                    if (requested_nurses.find(x => Number(x) == (nurse + 1)))
+                        dayArray.push(1);
+                    else
+                        dayArray.push(0);
+                }
+            }
+        }
+
+        return array;
+    }
+    
+    let solve = () => {
+        let nurseCount = Number(el("#nurseCount").value);
+        let shiftsPerDay = Number(el("#shiftsPerDay").value);
+        let days = Number(el("#days").value);
+
+        let xhr = new XMLHttpRequest();
+        xhr.open("POST", 'http://localhost:5050/api/solve', true);
+
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.onreadystatechange = function() { // Call a function when the state changes.
+            if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                console.log(JSON.parse(this.response));
+                parseSolution(JSON.parse(this.response));
+            }
+
+            if (this.readyState === XMLHttpRequest.DONE && this.status !== 200) {
+                alert("Cannot find a solution to satisfy current constraints!");
+            }
+        }
+
+
+        let requestBody = {
+            "num_nurses": nurseCount, 
+            "num_shifts": shiftsPerDay,
+            "num_days": days,
+            "shift_requests": getShiftRequests(nurseCount, shiftsPerDay, days)
+            
+        };
+
+        xhr.send(JSON.stringify(requestBody));
+    }
+
+    let parseSolution = (solution) => {
+        console.log(`Requests met : ${solution.stats.requests_met}`);
+
+        let shifts_solved = solution.shifts_solved;
+        shifts_solved.forEach(x => {
+            let day = x.day;
+            let shift = x.shift;
+            let nurse = x.nurse;
+
+            let shiftBox = document.querySelector(`#day${day}-shift${shift}`);
+            shiftBox.classList.remove("bg-light", "bg-success", "bg-warning");
+            if(!shiftBox.value)
+            {
+                shiftBox.value = `${nurse+1}`;
+                shiftBox.classList.add("bg-light");
+            }
+            else
+            {
+                if (Number(shiftBox.value) === (nurse+1))
+                {
+                    shiftBox.value = `${nurse+1}`;
+                    shiftBox.classList.add("bg-success");
+                }
+                else
+                {
+                    shiftBox.value = `Assigned to ${nurse+1} - Requested By ${shiftBox.value}`;
+                    shiftBox.classList.add("bg-warning");
+                }
+                
+            }
+        });
+
+    }
+    
+    let reset = () => {
+        let nurseCount = Number(el("#nurseCount").value);
+        let shiftsPerDay = Number(el("#shiftsPerDay").value);
+        let days = Number(el("#days").value);
+
+        document.querySelector("#content").innerHTML = '';
+        let table = document.createElement('table');
+        table.classList.add('table');
+        table.classList.add('table-striped');
+
+        let thead = document.createElement('thead');
+        for (var j = -1; j < shiftsPerDay; j++) {
+            let cell = document.createElement('th');
+            cell.className = 'thead-dark';
+            if (j >= 0) cell.innerText = `Shift ${j + 1}`;
+            thead.appendChild(cell);
+        }
+        table.appendChild(thead);
+
+        for (var i = 0; i < days; i++) {
+            let row = document.createElement('tr');
+
+            for (var j = -1; j < shiftsPerDay; j++) {
+                let cell = document.createElement('td');
+                if (j >= 0) {
+                    createNurseSelector(cell, i, j, nurseCount);
+                }
+                else {
+                    cell.innerText = `Day ${i + 1}`;
+                }
+
+                row.appendChild(cell);
+            }
+
+            table.appendChild(row);
+
+        }
+
+        document.querySelector("#content").appendChild(table);
+    }
+    window.onload = () => {
+        reset();
+    }
+
+
+
+
+
+</script>
+
+</html>
