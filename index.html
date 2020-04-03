@@ -17,6 +17,10 @@
         .full-width {
             min-width: 300px;
         }
+        #nurseNames
+        {
+            width: 600px;
+        }
     </style>
 
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
@@ -33,13 +37,13 @@
 </head>
 
 <body>
-    <h1>Nurse Scheduling Solver</h1>
+    <h1>Princess Alexandra Hospital - Intensive Care Unit</h1>
     <hr>
 
     <fieldset>
         <div>
-            <label for="nurseCount">Nurse count</label>
-            <input type="number" id="nurseCount" name="nurseCount" value="5">
+            <label for="nurseNames">Nurses</label>
+            <input type="text" id="nurseNames" name="nurseNames" placeholder="Enter nurse names separated by commas" value="">
         </div>
         <div>
             <label for="shiftsPerDay">Shifts per day</label>
@@ -71,7 +75,7 @@
 
     let el = (selector) => document.querySelector(selector);
 
-    let createNurseSelector = (cell, day, shift, nurseCount) => {
+    let createNurseSelector = (cell, day, shift, nurseNames) => {
 
         let selector = document.createElement('input');
         selector.type = 'text';
@@ -81,9 +85,9 @@
 
     }
 
-    let getShiftRequests = (nurseCount, shiftsPerDay, days) => {
+    let getShiftRequests = (nurseNames, shiftsPerDay, days) => {
         let array = [];
-        for(var nurse=0; nurse < nurseCount; nurse++)
+        for(var nurse=0; nurse < nurseNames.length; nurse++)
         {
             let nurseArray = [];
             array.push(nurseArray);
@@ -106,7 +110,7 @@
     }
     
     let solve = () => {
-        let nurseCount = Number(el("#nurseCount").value);
+        let nurseNames = el("#nurseNames").value.split(",");
         let shiftsPerDay = Number(el("#shiftsPerDay").value);
         let days = Number(el("#days").value);
 
@@ -127,10 +131,10 @@
 
 
         let requestBody = {
-            "num_nurses": nurseCount, 
+            "num_nurses": nurseNames.length, 
             "num_shifts": shiftsPerDay,
             "num_days": days,
-            "shift_requests": getShiftRequests(nurseCount, shiftsPerDay, days)
+            "shift_requests": getShiftRequests(nurseNames, shiftsPerDay, days)
             
         };
 
@@ -139,30 +143,31 @@
 
     let parseSolution = (solution) => {
         console.log(`Requests met : ${solution.stats.requests_met}`);
-
+        let nurseNames = el("#nurseNames").value.split(",");
         let shifts_solved = solution.shifts_solved;
         shifts_solved.forEach(x => {
             let day = x.day;
             let shift = x.shift;
             let nurse = x.nurse;
+            let nurseName  = nurseNames[nurse];
 
             let shiftBox = document.querySelector(`#day${day}-shift${shift}`);
             shiftBox.classList.remove("bg-light", "bg-success", "bg-warning");
             if(!shiftBox.value)
             {
-                shiftBox.value = `${nurse+1}`;
+                shiftBox.value = `${nurseName}`;
                 shiftBox.classList.add("bg-light");
             }
             else
             {
-                if (Number(shiftBox.value) === (nurse+1))
+                if (Number(shiftBox.value) === (nurseName))
                 {
-                    shiftBox.value = `${nurse+1}`;
+                    shiftBox.value = `${nurseName}`;
                     shiftBox.classList.add("bg-success");
                 }
                 else
                 {
-                    shiftBox.value = `Assigned to ${nurse+1} - Requested By ${shiftBox.value}`;
+                    shiftBox.value = `Assigned to ${nurseName} - Requested By ${shiftBox.value}`;
                     shiftBox.classList.add("bg-warning");
                 }
                 
@@ -172,7 +177,7 @@
     }
     
     let reset = () => {
-        let nurseCount = Number(el("#nurseCount").value);
+        let nurseNames = el("#nurseNames").value.split(",");
         let shiftsPerDay = Number(el("#shiftsPerDay").value);
         let days = Number(el("#days").value);
 
@@ -196,7 +201,7 @@
             for (var j = -1; j < shiftsPerDay; j++) {
                 let cell = document.createElement('td');
                 if (j >= 0) {
-                    createNurseSelector(cell, i, j, nurseCount);
+                    createNurseSelector(cell, i, j, nurseNames);
                 }
                 else {
                     cell.innerText = `Day ${i + 1}`;
